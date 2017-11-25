@@ -5,6 +5,7 @@ import matplotlib.pyplot as plot
 
 #已知常量
 #相机对白纸的距离
+# 暂时单位是cm
 KNOWN_DISTANCE = 32.0
 
 KNOWN_WIDTH = 25.5
@@ -23,6 +24,40 @@ KNOWN_WIDTH = 25.5
 
 我们将使用相似三角形来计算相机到一个已知的物体或者目标的距离。
 '''
+
+# 定义缩放resize函数（利用opencv,支持等比例缩放算法）
+# 1 如果宽度和高度均为0，则返回原图
+# 2 宽度是0 则根据高度计算缩放比例
+# 3 如果高度为0 根据宽度计算缩放比例
+# interpolation 插值，是一种图像处理方法，它可以为数码图像增加或减少像素的数目
+def resize(image, width=None, height=None, inter=cv2.INTER_AREA):
+	# 初始化缩放比例，并获取图像尺寸
+	dim = None
+	(h, w) = image.shape[:2]
+
+	# 如果宽度和高度均为0，则返回原图
+	if width is None and height is None:
+		return image
+
+	# 宽度是0
+	if width is None:
+		# 则根据高度计算缩放比例
+		r = height / float(h)
+		dim = (int(w * r), height)
+
+	# 如果高度为0
+	else:
+		# 根据宽度计算缩放比例
+		r = width / float(w)
+		dim = (width, int(h * r))
+
+	# 缩放图像
+	resized = cv2.resize(image, dim, interpolation=inter)
+
+	# 返回缩放后的图像
+	return resized
+
+
 
 #这个函数接收一个 image 参数，
 #并且这意味着我们将用它来找出将要计算距离的物体。
@@ -100,61 +135,51 @@ def distance_to_camera(knownWidth, focalLength, perWidth):
 	# compute and return the distance from the maker to the camera
 	return (knownWidth * focalLength) / perWidth
 	
-	
-# 使用静态图片测试	
-img = cv2.imread('black_32.jpg')#('black_32.jpg')
-res = cv2.resize(img,(764,764))
-# cv2.imshow("img",img)
-# cv2.imshow("res",res)
-gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
-cv2.imshow("gray",gray)
-gray = cv2.GaussianBlur(gray, (5, 5), 0)
-ret ,binary = cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
-cv2.imshow("binary",binary)
 
-#测试时曾用来观察截取的最大边框是否正确
-# frame = find_marker(res)
-# cv2.imshow("find_marker",frame)
+ImgToDetArray = ['black_32.jpg','black_mid.jpg','black_long.jpg']
 
-# 根据已知距离的图片计算焦距
-marker = find_marker(res)
-print("marker :   ", marker)
-#计算出焦距
-focalLength = (marker[1][0] * KNOWN_DISTANCE) / KNOWN_WIDTH
-print("focalLength : %f  cm" % focalLength)
+def main():	
+	# 使用静态图片测试	
+	img = cv2.imread('black_32.jpg')#('black_32.jpg')
+	res = resize(img, width=764)#等比例缩放
+	# cv2.imshow("img",img)
+	# cv2.imshow("res",res)
+	gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
+	# cv2.imshow("gray",gray)
+	gray = cv2.GaussianBlur(gray, (5, 5), 0)
+	ret ,binary = cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
+	# cv2.imshow("binary",binary)
 
-imgToDet = cv2.imread("black_mid.jpg")
-imgToDetRes = cv2.resize(imgToDet,(764,764))
-cv2.imshow("imgToDetRes",imgToDetRes)
-markerDet = find_marker(imgToDetRes)
-distance = distance_to_camera(KNOWN_WIDTH, focalLength, markerDet[1][0])
-print("distance:%f  cm" % distance)
-# box = np.int0(cv2.cv2.BoxPoints(markerDet))
-# cv2.drawContours(imgToDetRes, [box], -1, (0, 255, 0), 2)
-# cv2.putText(imgToDetRes, "%.2f cm" % distance,
-			# (imgToDetRes.shape[1] - 200, imgToDetRes.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX,
-			# 2.0, (0, 255, 0), 3)
-# cv2.imshow("imgToDetRes", imgToDetRes)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+	#测试时曾用来观察截取的最大边框是否正确
+	# frame = find_marker(res)
+	# cv2.imshow("find_marker",frame)
 
+	# 根据已知距离的图片计算焦距
+	marker = find_marker(res)
+	print("marker :   ", marker)
+	#计算出焦距
+	focalLength = (marker[1][0] * KNOWN_DISTANCE) / KNOWN_WIDTH
+	print("focalLength : %f  px" % focalLength)
 
+	for im in ImgToDetArray:
+		imgToDet = cv2.imread(im)
+		imgToDetRes = resize(imgToDet, width=764)#等比例缩放
+		# cv2.imshow("imgToDetRes",imgToDetRes)
+		markerDet = find_marker(imgToDetRes)
+		distance = distance_to_camera(KNOWN_WIDTH, focalLength, markerDet[1][0])
+		print("%s distance:%f  cm" % (im,distance))
+	# box = np.int0(cv2.cv2.BoxPoints(markerDet))
+	# cv2.drawContours(imgToDetRes, [box], -1, (0, 255, 0), 2)
+	# cv2.putText(imgToDetRes, "%.2f cm" % distance,
+				# (imgToDetRes.shape[1] - 200, imgToDetRes.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX,
+				# 2.0, (0, 255, 0), 3)
+	# cv2.imshow("imgToDetRes", imgToDetRes)
+	# cv2.waitKey(0)
+	cv2.destroyAllWindows()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#相当于该python代码的主程序执行入口
+if __name__ == '__main__':
+	main()
 
 
 
